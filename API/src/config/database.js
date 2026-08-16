@@ -1,7 +1,6 @@
 import mysql from 'mysql2/promise';
 import dotenv from 'dotenv';
 
-// Carrega as variáveis do arquivo .env
 dotenv.config();
 
 const pool = mysql.createPool({
@@ -17,7 +16,7 @@ const pool = mysql.createPool({
 pool.getConnection()
     .then((connection) => {
         console.log('Conectado ao banco de dados MySQL com sucesso!');
-        connection.release(); // Libera a conexão de volta pra pool
+        connection.release();
     })
     .catch((err) => {
         console.error('ERROR: Não foi possível conectar ao banco de dados!');

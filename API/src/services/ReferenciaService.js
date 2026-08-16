@@ -4,8 +4,6 @@ class ReferenciaService {
     async buscarImagens(termoBusca = 'damascus knife') {
         const apiKey = process.env.UNSPLASH_API_KEY;
         const url = `https://api.unsplash.com/search/photos?query=${termoBusca}&per_page=10`;
-
-        // Usamos o fetch nativo do Node.js para chamar a API externa
         const resposta = await fetch(url, {
             headers: {
                 'Authorization': `Client-ID ${apiKey}`
@@ -18,7 +16,6 @@ class ReferenciaService {
 
         const dados = await resposta.json();
         
-        // Mapeamos o retorno gigante do Unsplash para enviar só o que o front precisa
         return dados.results.map(foto => ({
             unsplash_id: foto.id,
             url_imagem: foto.urls.regular,

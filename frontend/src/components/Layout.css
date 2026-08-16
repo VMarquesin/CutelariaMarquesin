@@ -1,0 +1,87 @@
+.layout-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* TOP BAR */
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: var(--panel-bg);
+  padding: 0 2rem;
+  height: 70px;
+  border-bottom: 1px solid var(--border-color);
+  z-index: 10;
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.logo-placeholder {
+  width: 40px;
+  height: 40px;
+  background-color: var(--accent-color);
+  color: white;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 1.2rem;
+}
+
+.topbar-title {
+  font-size: 1.25rem;
+  color: var(--text-main);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* CONTAINERS INFERIORES */
+.main-container {
+  display: flex;
+  flex: 1;
+  overflow: hidden; /* Evita que a página toda role, apenas o conteúdo rola */
+}
+
+/* SIDE BAR */
+.sidebar {
+  width: 250px;
+  background-color: var(--panel-bg);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  padding: 2rem 0;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+}
+
+.nav-item {
+  padding: 1rem 2rem;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.2s;
+  border-left: 3px solid transparent;
+}
+
+.nav-item:hover, .nav-item.active {
+  background-color: rgba(217, 119, 6, 0.1);
+  color: var(--accent-color);
+  border-left: 3px solid var(--accent-color);
+}
+
+/* ÁREA DE CONTEÚDO */
+.content-area {
+  flex: 1;
+  overflow-y: auto;
+  background-color: var(--bg-color);
+}

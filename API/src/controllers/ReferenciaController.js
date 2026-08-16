@@ -3,7 +3,7 @@ import referenciaService from '../services/ReferenciaService.js';
 class ReferenciaController {
     async buscarExterna(req, res) {
         try {
-            const { query } = req.query; // Pega o que o usuário quer buscar na URL
+            const { query } = req.query;
             const imagens = await referenciaService.buscarImagens(query);
             res.json(imagens);
         } catch (erro) {
@@ -13,7 +13,6 @@ class ReferenciaController {
 
     async salvar(req, res) {
         try {
-            // req.usuarioId foi injetado pelo nosso middleware!
             const usuarioId = req.usuarioId; 
             const { unsplashId, urlImagem, comentario } = req.body;
 

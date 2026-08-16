@@ -10,7 +10,6 @@ class ReferenciaRepository {
     }
 
     async listarPorUsuario(usuarioId) {
-        // A regra mais importante do trabalho: filtrar pelo ID do usuário logado!
         const [rows] = await pool.execute(
             'SELECT * FROM referencias_producao WHERE usuario_id = ? ORDER BY criado_em DESC',
             [usuarioId]

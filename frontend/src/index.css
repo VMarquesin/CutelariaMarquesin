@@ -1,0 +1,34 @@
+:root {
+  --bg-color: #121212;
+  --panel-bg: #1e1e1e;
+  --border-color: #333333;
+  --text-main: #e0e0e0;
+  --text-muted: #888888;
+  --accent-color: #d97706;
+  --accent-hover: #b45309;
+  --danger-color: #dc2626;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-main);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+input, button, textarea {
+  font-family: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease-in-out;
+}

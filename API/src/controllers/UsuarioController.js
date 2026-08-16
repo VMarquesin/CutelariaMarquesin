@@ -25,7 +25,7 @@ class UsuarioController {
             }
 
             const dadosLogin = await usuarioService.login(username, senha);
-            res.json(dadosLogin); // Retorna o token e os dados
+            res.json(dadosLogin);
         } catch (erro) {
             res.status(401).json({ erro: erro.message });
         }
