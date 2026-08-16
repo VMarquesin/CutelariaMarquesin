@@ -1,0 +1,16 @@
+version: '3.8'
+services:
+  api-cutelaria:
+    build: .
+    container_name: api-cutelaria-backend
+    ports:
+      - "8227:3000" 
+    environment:
+      - PORT=3000
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASS=${DB_PASS}
+      - DB_NAME=${DB_NAME}
+      - JWT_SECRET=${JWT_SECRET}
+      - UNSPLASH_API_KEY=${UNSPLASH_API_KEY}
+    restart: always
