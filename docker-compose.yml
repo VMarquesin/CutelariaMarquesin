@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  # 1. O nosso Monólito original (que agora virou o Catálogo/Proxy)
+  catalogo-api:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000" # Única porta exposta para a internet
+    environment:
+      - AUTH_SERVICE_URL=http://auth-service:3001 # Aponta para o nome do container abaixo
+    networks:
+      - rede-cutelaria
+    restart: always
+
+  # 2. O NOVO Microsserviço de Autenticação
+  auth-service:
+    build:
+      context: ./AuthService
+      dockerfile: Dockerfile
+    # ATENÇÃO: Propositalmente SEM a diretiva 'ports'. 
+    # Fica invisível para fora, acessível apenas pela rede interna.
+    environment:
+      - PORT=3001
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASS=${DB_PASS}
+      - DB_NAME=${DB_NAME}
+      - JWT_SECRET=${JWT_SECRET}
+      - EMAIL_HOST=${EMAIL_HOST}
+      - EMAIL_PORT=${EMAIL_PORT}
+      - EMAIL_USER=${EMAIL_USER}
+      - EMAIL_PASS=${EMAIL_PASS}
+      - FRONTEND_URL=${FRONTEND_URL}
+    networks:
+      - rede-cutelaria
+    restart: always
+
+networks:
+  rede-cutelaria:
+    driver: bridge
