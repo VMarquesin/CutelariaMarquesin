@@ -1,23 +1,32 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
+import Cadastro from './pages/Cadastro';
 import EsqueciSenha from './pages/EsqueciSenha';
 import ResetarSenha from './pages/ResetarSenha';
 import Dashboard from './pages/Dashboard';
 import Home from './pages/Home';
 import Layout from './components/Layout';
 
-function App() {
-  const estaAutenticado = () => {
-    return localStorage.getItem('token') !== null;
-  };
+// O SEGREDO: Criamos um componente de Guarda-Costas!
+// Ele vai olhar pro localStorage EXATAMENTE na hora que você tentar entrar no /home
+const RotaPrivada = () => {
+  const logado = localStorage.getItem('token') !== null;
+  return logado ? <Layout /> : <Navigate to="/" />;
+};
 
+function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Login />} />
-        <Route element={estaAutenticado() ? <Layout /> : <Navigate to="/" />}>
-        <Route path="/home" element={<Home />} />
-        <Route path="/referencias" element={<Dashboard />} /> 
+        <Route path="/cadastro" element={<Cadastro />} />
+        <Route path="/esqueci-senha" element={<EsqueciSenha />} />
+        <Route path="/resetar-senha" element={<ResetarSenha />} />
+        
+        {/* Usamos o Guarda-Costas aqui */}
+        <Route element={<RotaPrivada />}>
+          <Route path="/home" element={<Home />} />
+          <Route path="/referencias" element={<Dashboard />} /> 
         </Route>
       </Routes>
     </BrowserRouter>

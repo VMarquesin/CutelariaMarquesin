@@ -47,10 +47,20 @@ function Login() {
           <button type="submit">Entrar na Oficina</button>
         </form>
         
-        <div style={{ marginTop: '1rem', textAlign: 'center' }}>
-          <Link to="/esqueci-senha" style={{ color: 'var(--accent-color)', textDecoration: 'none', fontSize: '0.9rem' }}>
+        {/* AQUI ESTÁ A MUDANÇA: Os links empilhados e centralizados */}
+        <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.8rem', textAlign: 'center' }}>
+          <Link to="/esqueci-senha" style={{ color: '#d97706', textDecoration: 'none', fontSize: '0.9rem' }}>
             Esqueceu sua senha?
           </Link>
+          
+          <div style={{ borderTop: '1px solid #444', margin: '0.5rem 0' }}></div>
+          
+          <span style={{ color: '#a1a1aa', fontSize: '0.9rem' }}>
+            Ainda não tem cadastro?{' '}
+            <Link to="/cadastro" style={{ color: '#d97706', textDecoration: 'none', fontWeight: 'bold' }}>
+              Criar conta
+            </Link>
+          </span>
         </div>
       </div>
     </div>

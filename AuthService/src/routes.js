@@ -16,44 +16,79 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-// 1. CADASTRO (Agora aceita Username e Email)
+// 1. ROTA DE CADASTRO
 router.post('/cadastro', async (req, res) => {
     const { username, email, senha } = req.body;
     try {
+        if (!username || !email || !senha) {
+            return res.status(400).json({ erro: 'Preencha todos os campos.' });
+        }
+
+        // Verifica se o e-mail já existe
+        const [jaExiste] = await db.query('SELECT * FROM usuarios WHERE email = ?', [email]);
+        if (jaExiste.length > 0) {
+            return res.status(400).json({ erro: 'Este e-mail já está em uso.' });
+        }
+
+        // Criptografa a senha antes de salvar
         const hash = await bcrypt.hash(senha, 10);
+
+        // NOME DA COLUNA CORRIGIDO PARA 'senha_hash' E VARIÁVEL PARA 'hash'
         await db.query(
-            'INSERT INTO usuarios (username, email, senha, role) VALUES (?, ?, ?, ?)',
+            'INSERT INTO usuarios (username, email, senha_hash, role) VALUES (?, ?, ?, ?)', 
             [username, email, hash, 'usuario']
         );
-        res.status(201).json({ mensagem: 'Usuário criado com sucesso' });
+
+        res.status(201).json({ mensagem: 'Sua conta na Forja & Fogo foi criada com sucesso!' });
     } catch (error) {
-        res.status(500).json({ erro: 'Erro ao criar usuário', detalhe: error.message });
+        console.error("[ERRO GRAVE NO CADASTRO]:", error);
+        res.status(500).json({ erro: 'Erro interno ao criar conta.' });
     }
 });
 
-// 2. LOGIN (Procura pelo Email)
+// 2. LOGIN
 router.post('/login', async (req, res) => {
     const { email, senha } = req.body;
     try {
-        const [rows] = await db.query('SELECT * FROM usuarios WHERE email = ?', [email]);
-        if (rows.length === 0) return res.status(401).json({ erro: 'E-mail não encontrado' });
+        if (!email || !senha) {
+            return res.status(400).json({ erro: 'E-mail e senha são obrigatórios' });
+        }
 
-        const usuario = rows[0];
-        const senhaValida = await bcrypt.compare(senha, usuario.senha);
-        if (!senhaValida) return res.status(401).json({ erro: 'Senha incorreta' });
+        const [results] = await db.query('SELECT * FROM usuarios WHERE email = ?', [email]);
+        
+        if (results.length === 0) {
+            return res.status(401).json({ erro: 'Usuário não encontrado' });
+        }
+
+        const usuario = results[0];
+        
+        // CORRIGIDO: Puxando exatamente o nome da coluna do banco (senha_hash)
+        const hashBanco = usuario.senha_hash;
+
+        if (!hashBanco) {
+            return res.status(500).json({ erro: 'Falha na estrutura do banco de dados.' });
+        }
+
+        const senhaValida = await bcrypt.compare(senha, hashBanco);
+
+        if (!senhaValida) {
+            return res.status(401).json({ erro: 'Credenciais inválidas' });
+        }
 
         const token = jwt.sign(
-            { id: usuario.id, role: usuario.role },
+            { id: usuario.id, role: usuario.role || 'usuario' },
             process.env.JWT_SECRET,
-            { expiresIn: '8h' }
+            { expiresIn: '1h' }
         );
-        res.json({ token, role: usuario.role, username: usuario.username });
+
+        res.json({ token, usuario: { id: usuario.id, email: usuario.email } });
     } catch (error) {
-        res.status(500).json({ erro: 'Erro no servidor' });
+        console.error("[ERRO GRAVE NO LOGIN]:", error);
+        res.status(500).json({ erro: 'Erro interno no servidor' });
     }
 });
 
-// 3. ESQUECI MINHA SENHA (Busca pelo Email e envia para ele)
+// 3. ESQUECI MINHA SENHA
 router.post('/esqueci-senha', async (req, res) => {
     const { email } = req.body; 
     try {
@@ -73,7 +108,6 @@ router.post('/esqueci-senha', async (req, res) => {
 
         const link = `${process.env.FRONTEND_URL}/resetar-senha?token=${token}`;
 
-        // Agora o envio usa o e-mail real do usuário!
         await transporter.sendMail({
             from: '"Cutelaria Marquesin" <noreply@cutelaria.com>',
             to: usuario.email, 
@@ -92,7 +126,7 @@ router.post('/esqueci-senha', async (req, res) => {
     }
 });
 
-// 4. VALIDAR TOKEN E TROCAR SENHA (Permanece igual, pois usa o token)
+// 4. VALIDAR TOKEN E TROCAR SENHA
 router.post('/resetar-senha', async (req, res) => {
     const { token, novaSenha } = req.body;
     try {
@@ -105,7 +139,9 @@ router.post('/resetar-senha', async (req, res) => {
         if (new Date() > new Date(resetData.expira_em)) return res.status(400).json({ erro: 'Este link expirou.' });
 
         const hash = await bcrypt.hash(novaSenha, 10);
-        await db.query('UPDATE usuarios SET senha = ? WHERE id = ?', [hash, resetData.usuario_id]);
+        
+        // CORRIGIDO PARA 'senha_hash'
+        await db.query('UPDATE usuarios SET senha_hash = ? WHERE id = ?', [hash, resetData.usuario_id]);
         await db.query('UPDATE reset_tokens SET usado = true WHERE token = ?', [token]);
 
         res.json({ mensagem: 'Senha alterada com sucesso!' });
