@@ -6,9 +6,8 @@ import ResetarSenha from './pages/ResetarSenha';
 import Dashboard from './pages/Dashboard';
 import Home from './pages/Home';
 import Layout from './components/Layout';
+import Admin from './pages/Admin';
 
-// O SEGREDO: Criamos um componente de Guarda-Costas!
-// Ele vai olhar pro localStorage EXATAMENTE na hora que você tentar entrar no /home
 const RotaPrivada = () => {
   const logado = localStorage.getItem('token') !== null;
   return logado ? <Layout /> : <Navigate to="/" />;
@@ -27,6 +26,7 @@ function App() {
         <Route element={<RotaPrivada />}>
           <Route path="/home" element={<Home />} />
           <Route path="/referencias" element={<Dashboard />} /> 
+          <Route path="/admin" element={<Admin />} />
         </Route>
       </Routes>
     </BrowserRouter>

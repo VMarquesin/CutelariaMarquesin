@@ -16,7 +16,7 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-// 1. ROTA DE CADASTRO
+// ROTA DE CADASTRO
 router.post('/cadastro', async (req, res) => {
     const { username, email, senha } = req.body;
     try {
@@ -33,7 +33,6 @@ router.post('/cadastro', async (req, res) => {
         // Criptografa a senha antes de salvar
         const hash = await bcrypt.hash(senha, 10);
 
-        // NOME DA COLUNA CORRIGIDO PARA 'senha_hash' E VARIÁVEL PARA 'hash'
         await db.query(
             'INSERT INTO usuarios (username, email, senha_hash, role) VALUES (?, ?, ?, ?)', 
             [username, email, hash, 'usuario']
@@ -46,7 +45,7 @@ router.post('/cadastro', async (req, res) => {
     }
 });
 
-// 2. LOGIN
+// LOGIN
 router.post('/login', async (req, res) => {
     const { email, senha } = req.body;
     try {
@@ -61,8 +60,6 @@ router.post('/login', async (req, res) => {
         }
 
         const usuario = results[0];
-        
-        // CORRIGIDO: Puxando exatamente o nome da coluna do banco (senha_hash)
         const hashBanco = usuario.senha_hash;
 
         if (!hashBanco) {
@@ -88,7 +85,7 @@ router.post('/login', async (req, res) => {
     }
 });
 
-// 3. ESQUECI MINHA SENHA
+// ESQUECI MINHA SENHA
 router.post('/esqueci-senha', async (req, res) => {
     const { email } = req.body; 
     try {
@@ -126,7 +123,7 @@ router.post('/esqueci-senha', async (req, res) => {
     }
 });
 
-// 4. VALIDAR TOKEN E TROCAR SENHA
+// VALIDAR TOKEN E TROCAR SENHA
 router.post('/resetar-senha', async (req, res) => {
     const { token, novaSenha } = req.body;
     try {
@@ -140,13 +137,69 @@ router.post('/resetar-senha', async (req, res) => {
 
         const hash = await bcrypt.hash(novaSenha, 10);
         
-        // CORRIGIDO PARA 'senha_hash'
         await db.query('UPDATE usuarios SET senha_hash = ? WHERE id = ?', [hash, resetData.usuario_id]);
         await db.query('UPDATE reset_tokens SET usado = true WHERE token = ?', [token]);
 
         res.json({ mensagem: 'Senha alterada com sucesso!' });
     } catch (error) {
         res.status(500).json({ erro: 'Erro ao alterar senha' });
+    }
+});
+
+// MIDDLEWARE DE AUTORIZAÇÃO (RBAC)
+const verificarAdmin = (req, res, next) => {
+
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+        return res.status(401).json({ erro: 'Acesso negado. Token não fornecido.' });
+    }
+
+    const token = authHeader.split(' ')[1]; 
+    
+    try {
+        const decodificado = jwt.verify(token, process.env.JWT_SECRET);
+        
+        if (decodificado.role !== 'admin') {
+            return res.status(403).json({ 
+                erro: 'Acesso proibido (403). Apenas administradores podem realizar esta ação.' 
+            });
+        }
+
+        req.usuarioLogado = decodificado;
+        next(); 
+    } catch (error) {
+        return res.status(401).json({ erro: 'Token inválido ou expirado.' });
+    }
+};
+
+// ROTAS EXCLUSIVAS DE ADMIN
+router.get('/admin/usuarios', verificarAdmin, async (req, res) => {
+    try {
+        const [usuarios] = await db.query(
+            'SELECT id, username, email, role, criado_em FROM usuarios'
+        );
+        res.json(usuarios);
+    } catch (error) {
+        console.error("[ERRO AO LISTAR USUARIOS]:", error);
+        res.status(500).json({ erro: 'Erro interno ao buscar usuários' });
+    }
+});
+
+// PROMOVER OU REBAIXAR UM USUÁRIO (Protegido por verificarAdmin)
+router.put('/admin/usuarios/:id/role', verificarAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { novoRole } = req.body;
+
+    if (novoRole !== 'admin' && novoRole !== 'usuario') {
+        return res.status(400).json({ erro: 'Papel inválido. Use "admin" ou "usuario".' });
+    }
+
+    try {
+        await db.query('UPDATE usuarios SET role = ? WHERE id = ?', [novoRole, id]);
+        res.json({ mensagem: `O papel do usuário ${id} foi atualizado para '${novoRole}' com sucesso!` });
+    } catch (error) {
+        console.error("[ERRO AO ATUALIZAR PAPEL]:", error);
+        res.status(500).json({ erro: 'Erro interno ao atualizar papel' });
     }
 });
 
