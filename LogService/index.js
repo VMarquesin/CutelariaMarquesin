@@ -12,8 +12,11 @@ await redisClient.connect();
 const STREAM_KEY = 'auditoria_stream';
 
 // GRAVAR LOG (Uso interno dos microsserviços)
+// ==========================================
+// ROTA 1: GRAVAR LOG (Uso interno)
+// ==========================================
 app.post('/log', async (req, res) => {
-    const { usuario_id, acao } = req.body;
+    const { usuario_id, acao, ip, detalhes } = req.body;
     
     if (!usuario_id || !acao) {
         return res.status(400).json({ erro: 'Faltam dados para o log' });
@@ -22,7 +25,6 @@ app.post('/log', async (req, res) => {
     try {
         const timestampFormatado = new Date().toISOString();
         
-        // XADD: Grava no Redis Stream
         await redisClient.xAdd(STREAM_KEY, '*', {
             usuario_id: String(usuario_id),
             acao: String(acao),
@@ -33,9 +35,7 @@ app.post('/log', async (req, res) => {
         
         console.log(`[LOG REGISTRADO] Usuário: ${usuario_id} | Ação: ${acao}`);
         res.status(201).send('Log registrado com sucesso');
-    } 
-    catch (error) 
-    {
+    } catch (error) {
         console.error('Erro ao gravar log no Redis:', error);
         res.status(500).send('Erro interno');
     }
@@ -52,9 +52,13 @@ app.get('/logs', async (req, res) => {
         const decodificado = jwt.verify(token, process.env.JWT_SECRET);
         
         if (decodificado.role !== 'admin') {
+            const ipInvasor = req.headers['x-forwarded-for'] || req.ip || 'Desconhecido';
+            
             await redisClient.xAdd(STREAM_KEY, '*', {
                 usuario_id: String(decodificado.id),
                 acao: 'TENTATIVA_ACESSO_NEGADO_LOGS',
+                ip: String(ipInvasor),
+                detalhes: 'Tentativa de visualizar aba de auditoria bloqueada',
                 data_hora: new Date().toISOString()
             });
             return res.status(403).json({ erro: 'Acesso proibido. Apenas administradores.' });
@@ -65,8 +69,8 @@ app.get('/logs', async (req, res) => {
             redis_id: log.id,
             usuario_id: log.message.usuario_id,
             acao: log.message.acao,
-            ip: log.message.ip,
-            detalhes: log.message.detalhes,
+            ip: log.message.ip || 'Desconhecido',
+            detalhes: log.message.detalhes || 'Sem detalhes adicionais',
             data_hora: log.message.data_hora
         }));
 

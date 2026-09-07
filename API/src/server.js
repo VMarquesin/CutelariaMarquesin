@@ -7,6 +7,7 @@ import dotenv from 'dotenv';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerDocument } from './config/swaggerDocs.js';
 import referenciaRoutes from './routes/referenciaRoutes.js';
+import axios from 'axios';
 
 import authRoutes from './routes/authRoutes.js';
 
@@ -27,15 +28,27 @@ app.get('/ping', (req, res) => {
     res.json({ message: 'Servidor da Cutelaria rodando perfeitamente!' });
 });
 
+// ROTA DE AUDITORIA
+app.get('/logs/auditoria', async (req, res) => {
+    try {
+        const respostaLogs = await axios.get('http://log-service:3002/logs', {
+            headers: { 
+                'Authorization': req.headers['authorization'] || '' 
+            }
+        });
+        res.status(200).json(respostaLogs.data);
+    } 
+    catch (error) 
+    {
+        if (error.response) {
+            res.status(error.response.status).json(error.response.data);
+        } else {
+            res.status(500).json({ erro: "Microsserviço de logs offline." });
+        }
+    }
+});
+
 const PORT = process.env.PORT || 3000;
-
-// app.use(express.static(path.join(__dirname, '../../frontend/dist')));
-// app.get(/.*/, (req, res) => {
-//     if (!req.path.startsWith('/auth') && !req.path.startsWith('/referencias') && !req.path.startsWith('/api-docs')) {
-//         res.sendFile(path.join(__dirname, '../../frontend/dist/index.html'));
-//     }
-// });
-
 const distPath = path.join(__dirname, '../dist');
 
 app.use(express.static(distPath));

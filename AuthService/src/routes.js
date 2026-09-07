@@ -89,10 +89,11 @@ router.post('/login', async (req, res) => {
             process.env.JWT_SECRET,
             { expiresIn: '1h' }
         );
-        registrarLog(usuario.id, 'LOGIN_SUCESSO');
         
-        res.json({ mensagem: 'Login bem-sucedido', token });
-        res.json({ token, usuario: { id: usuario.id, email: usuario.email } });
+        const ipUsuario = req.headers['x-forwarded-for'] || req.ip;
+        registrarLog(usuario.id, 'LOGIN_SUCESSO', ipUsuario, 'Usuário entrou no sistema');
+
+        res.json({ mensagem: 'Login bem-sucedido', token, usuario: { id: usuario.id, email: usuario.email } });
     } 
     catch (error) 
     {
@@ -169,7 +170,7 @@ router.post('/resetar-senha', async (req, res) => {
 // MIDDLEWARE DE AUTORIZAÇÃO (RBAC)
 const verificarAdmin = (req, res, next) => {
     const authHeader = req.headers.authorization;
-    const ipUsuario = req.headers['x-forwarded-for'] || req.ip;
+    const ipUsuario  = req.headers['x-forwarded-for'] || req.ip;
     
     if (!authHeader) {
         registrarLog('ANONIMO', 'TENTATIVA_ACESSO_SEM_TOKEN', ipUsuario, `Tentou acessar: ${req.originalUrl}`);
@@ -231,4 +232,24 @@ router.put('/admin/usuarios/:id/role', verificarAdmin, async (req, res) => {
     }
 });
 
+// ROTA DE LOGOUT (Auditoria)
+router.post('/logout', (req, res) => { 
+    const authHeader = req.headers.authorization;
+    const ip = req.headers['x-forwarded-for'] || req.ip;
+    
+    if (!authHeader) {
+        return res.status(200).json({ mensagem: 'Logout sem token (já deslogado)' });
+    }
+
+    try {
+        const token = authHeader.split(' ')[1];
+        const decodificado = jwt.verify(token, process.env.JWT_SECRET);
+        
+        registrarLog(decodificado.id, 'LOGOUT', ip, 'Usuário saiu do sistema');
+    } catch (error) {
+        // Se o token já expirou
+    }
+    
+    res.json({ mensagem: 'Logout efetuado com sucesso' });
+});
 export default router;

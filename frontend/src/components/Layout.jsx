@@ -1,14 +1,25 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import './Layout.css';
+import api from '../services/api';
 
 function Layout() {
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    navigate('/');
+  const handleLogout = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (token) {
+        await api.post('/auth/logout', {}, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      }
+    } catch (error) {
+      console.error("O servidor não respondeu, mas o logout local será feito:", error);
+    } finally {
+      localStorage.removeItem('token');
+      navigate('/');
+    }
   };
-
   return (
     <div className="layout-wrapper">
       {/* TOP BAR */}

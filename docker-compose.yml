@@ -39,6 +39,9 @@ services:
 
   redis:
     image: redis:alpine
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis-data:/data
     networks:
       - rede-cutelaria
     restart: always
@@ -57,3 +60,5 @@ services:
 networks:
   rede-cutelaria:
     driver: bridge
+volumes:
+  redis-data:

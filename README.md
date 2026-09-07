@@ -1,26 +1,71 @@
 # Catálogo de Cutelaria - Arquitetura de Microsserviços
 
-Olá professor [@siriani](https://github.com/siriani),
-Esta é a entrega referente à evolução da arquitetura (Desacoplando o Login).
+@siriani,
 
-### O que mudou (Atividade 3):
-O sistema, que antes operava como um monólito, foi reestruturado. Toda a responsabilidade de gestão de usuários (Login, Cadastro, Papéis de Usuário e Recuperação de Senha) foi extraída e isolada em um novo microsserviço chamado `AuthService`.
+Esta é a entrega referente à evolução da arquitetura, contemplando Auditoria, Observabilidade e Enforcement de Segurança (RBAC).
 
-### Destaques da Implementação:
-- **Separação de Responsabilidades:** O `Catálogo` atua como proxy para rotas de autenticação, comunicando-se com o `AuthService` exclusivamente pela rede interna do Docker (via chamadas HTTP).
-- **Segurança (Invisível para a Internet):** O `docker-compose.yml` evidencia que o container do `AuthService` **não possui portas publicadas** (`ports`) para o host. Ele é inacessível pelo meio externo.
-- **Recuperação de Senha Real:** Fluxo completo com geração de tokens seguros (UUID), expiração rígida de 30 minutos, invalidação após o uso e envio de e-mails reais integrados ao SMTP do Mailtrap.
-- **Roles:** Adição da coluna `role` no banco de dados para controle de papéis (ex: `usuario`, `admin`).
+## O que mudou na Atualização Mais Recente:
 
-Controle de Acesso (RBAC)
+O sistema, que já possuía o login desacoplado, evoluiu para incluir um robusto rastreamento de ações e auditoria. Foi criado um terceiro microsserviço, o log-service, que atua de forma assíncrona recebendo eventos críticos de negócio e segurança. Além disso, as rotas administrativas agora possuem bloqueio real (Enforcement) no servidor.
 
-usuario: Pode visualizar o catálogo de cutelaria, fazer login e gerenciar seu próprio perfil.
+## Destaques da Nova Implementação (Logs e Auditoria):
 
-admin: Tem todas as permissões do usuario e, adicionalmente, possui acesso ao painel de controle para listar todos os usuários cadastrados e promover/rebaixar papéis (moderação de contas).
+### Arquitetura Produtor/Consumidor:
 
-Decisão Arquitetural (Padrão A vs. B)
+Os serviços AuthService e Catálogo atuam como "Produtores" de eventos, enquanto o banco Redis e o log-service atuam como fila e armazenamento (Consumidor).
+
+### Fila de Mensagens com Redis Streams:
+
+Utilização do Redis (XADD) para salvar os logs de forma cronológica, veloz e persistente, substituindo logs de terminal efêmeros por verdadeiras trilhas de auditoria.
+
+### Persistência em Nuvem (Docker Volumes):
+
+Implementação de volume dedicado (redis-data) no docker-compose.yml para garantir que o histórico de auditoria sobreviva a atualizações (redeploys) dos containers no Portainer.
+
+### Captura Avançada de Contexto e IP:
+
+Os logs registram o usuario_id, a acao, capturam o IP real de origem (via proxy x-forwarded-for), além de injetar data/hora automática e detalhes descritivos da ação.
+
+### Auditoria de Negócio e Segurança:
+
+Rastreamento abrangente cobrindo: LOGIN_SUCESSO, LOGOUT, tentativas de invasão (TENTATIVA_ACESSO_ADMIN_NEGADO - 403), e ações de negócio como FAVORITAR_REFERENCIA (salvando ID da lâmina e comentários).
+
+### Painel Front-end Integrado:
+
+O painel de administração da Forja consome o endpoint /logs e exibe os registros em uma tabela formatada, exclusiva para Administradores.
+
+## Controle de Acesso (RBAC) e Enforcement
+
+usuario: Pode visualizar o catálogo de cutelaria, fazer login, favoritar referências e gerenciar seu perfil.
+
+admin: Tem todas as permissões do usuário e acesso exclusivo ao painel de controle para listar usuários, alterar papéis e auditar os logs do sistema.
+
+### Enforcement Ativo:
+
+Foi implementado um middleware (verificarAdmin) que bloqueia ativamente qualquer usuário sem a role 'admin' de acessar o painel, retornando HTTP 403 (Forbidden) e disparando um alerta para o microsserviço de logs.
+
+## Decisão Arquitetural (Padrão A vs. B)
+
 O nosso sistema utiliza o Padrão B (Claims no token JWT). No momento do login, o auth-service injeta a claim role dentro do token assinado.
 
-Por que não o Padrão A? Se usássemos o Padrão A, o microsserviço do Catálogo precisaria fazer uma requisição HTTP para o auth-service a cada tentativa de exclusão ou edição, criando um gargalo de rede.
+### Por que não o Padrão A?
 
-O que mudaria no código para o Padrão A? Precisaríamos remover a validação de token do Catálogo, criar uma rota POST /auth/validate no serviço de autenticação, e forçar o Catálogo a perguntar ao auth-service se a ação é permitida em toda requisição sensível.
+Se usássemos o Padrão A, o microsserviço do Catálogo precisaria fazer uma requisição HTTP para o auth-service a cada tentativa de exclusão, edição ou visualização de área restrita, criando um gargalo de rede.
+
+### O que mudaria no código para o Padrão A?
+
+Precisaríamos remover a validação de token descentralizada do Catálogo, criar uma rota POST /auth/validate no serviço de autenticação, e forçar o Catálogo a perguntar ao auth-service se a ação é permitida em toda requisição sensível.
+
+## Histórico da Arquitetura (Desacoplamento)
+
+### Separação de Responsabilidades:
+
+Toda a gestão de usuários fica isolada no AuthService. O Catálogo-API atua como proxy para as rotas de autenticação e logs.
+
+### Segurança da Rede Interna:
+
+O AuthService, o log-service e os bancos de dados não possuem portas publicadas para a internet. Eles são acessíveis apenas internamente pela rede do Docker.
+
+### Recuperação de Senha Real:
+
+Fluxo completo com geração de tokens seguros (UUID), expiração de 30 minutos e envio de e-mails reais via SMTP.
