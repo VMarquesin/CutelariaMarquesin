@@ -37,6 +37,23 @@ services:
       - rede-cutelaria
     restart: always
 
+  redis:
+    image: redis:alpine
+    networks:
+      - rede-cutelaria
+    restart: always
+
+  log-service:
+    build:
+      context: ./LogService
+      dockerfile: Dockerfile
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    networks:
+      - rede-cutelaria
+    restart: always
+
 networks:
   rede-cutelaria:
     driver: bridge

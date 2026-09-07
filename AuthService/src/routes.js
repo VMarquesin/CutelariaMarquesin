@@ -5,8 +5,20 @@ import { v4 as uuidv4 } from 'uuid';
 import nodemailer from 'nodemailer';
 import db from './db.js';
 
-const router = express.Router();
+// AUDITORIA LOG-SERVICE
+const registrarLog = async (usuario_id, acao, ip, detalhes) => {
+    try {
+        await fetch('http://log-service:3002/log', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ usuario_id, acao, ip, detalhes })
+        });
+    } catch (error) {
+        console.error('[AUDITORIA] Falha ao contatar LogService:', error.message);
+    }
+};
 
+const router = express.Router();
 const transporter = nodemailer.createTransport({
     host: process.env.EMAIL_HOST,
     port: process.env.EMAIL_PORT,
@@ -24,13 +36,11 @@ router.post('/cadastro', async (req, res) => {
             return res.status(400).json({ erro: 'Preencha todos os campos.' });
         }
 
-        // Verifica se o e-mail já existe
         const [jaExiste] = await db.query('SELECT * FROM usuarios WHERE email = ?', [email]);
         if (jaExiste.length > 0) {
             return res.status(400).json({ erro: 'Este e-mail já está em uso.' });
         }
 
-        // Criptografa a senha antes de salvar
         const hash = await bcrypt.hash(senha, 10);
 
         await db.query(
@@ -39,7 +49,9 @@ router.post('/cadastro', async (req, res) => {
         );
 
         res.status(201).json({ mensagem: 'Sua conta na Forja & Fogo foi criada com sucesso!' });
-    } catch (error) {
+    } 
+    catch (error) 
+    {
         console.error("[ERRO GRAVE NO CADASTRO]:", error);
         res.status(500).json({ erro: 'Erro interno ao criar conta.' });
     }
@@ -77,9 +89,13 @@ router.post('/login', async (req, res) => {
             process.env.JWT_SECRET,
             { expiresIn: '1h' }
         );
-
+        registrarLog(usuario.id, 'LOGIN_SUCESSO');
+        
+        res.json({ mensagem: 'Login bem-sucedido', token });
         res.json({ token, usuario: { id: usuario.id, email: usuario.email } });
-    } catch (error) {
+    } 
+    catch (error) 
+    {
         console.error("[ERRO GRAVE NO LOGIN]:", error);
         res.status(500).json({ erro: 'Erro interno no servidor' });
     }
@@ -118,7 +134,9 @@ router.post('/esqueci-senha', async (req, res) => {
         });
 
         res.json({ mensagem: 'E-mail de recuperação enviado com sucesso!' });
-    } catch (error) {
+    } 
+    catch (error) 
+    {
         res.status(500).json({ erro: 'Erro ao gerar recuperação' });
     }
 });
@@ -141,33 +159,39 @@ router.post('/resetar-senha', async (req, res) => {
         await db.query('UPDATE reset_tokens SET usado = true WHERE token = ?', [token]);
 
         res.json({ mensagem: 'Senha alterada com sucesso!' });
-    } catch (error) {
+    } 
+    catch (error) 
+    {
         res.status(500).json({ erro: 'Erro ao alterar senha' });
     }
 });
 
 // MIDDLEWARE DE AUTORIZAÇÃO (RBAC)
 const verificarAdmin = (req, res, next) => {
-
     const authHeader = req.headers.authorization;
+    const ipUsuario = req.headers['x-forwarded-for'] || req.ip;
+    
     if (!authHeader) {
+        registrarLog('ANONIMO', 'TENTATIVA_ACESSO_SEM_TOKEN', ipUsuario, `Tentou acessar: ${req.originalUrl}`);
         return res.status(401).json({ erro: 'Acesso negado. Token não fornecido.' });
     }
 
     const token = authHeader.split(' ')[1]; 
-    
     try {
         const decodificado = jwt.verify(token, process.env.JWT_SECRET);
         
         if (decodificado.role !== 'admin') {
-            return res.status(403).json({ 
-                erro: 'Acesso proibido (403). Apenas administradores podem realizar esta ação.' 
-            });
+            registrarLog(decodificado.id, 'TENTATIVA_ACESSO_ADMIN_NEGADO', 
+                         ipUsuario, `Usuário comum tentou acessar rota restrita: ${req.originalUrl}`);
+            return res.status(403).json({ erro: 'Acesso proibido (403).' });
         }
 
         req.usuarioLogado = decodificado;
         next(); 
-    } catch (error) {
+    } 
+    catch (error) 
+    {
+        registrarLog('ANONIMO', 'TENTATIVA_ACESSO_TOKEN_INVALIDO', ipUsuario, 'Token expirado ou forjado');
         return res.status(401).json({ erro: 'Token inválido ou expirado.' });
     }
 };
@@ -179,7 +203,9 @@ router.get('/admin/usuarios', verificarAdmin, async (req, res) => {
             'SELECT id, username, email, role, criado_em FROM usuarios'
         );
         res.json(usuarios);
-    } catch (error) {
+    } 
+    catch (error) 
+    {
         console.error("[ERRO AO LISTAR USUARIOS]:", error);
         res.status(500).json({ erro: 'Erro interno ao buscar usuários' });
     }
@@ -197,7 +223,9 @@ router.put('/admin/usuarios/:id/role', verificarAdmin, async (req, res) => {
     try {
         await db.query('UPDATE usuarios SET role = ? WHERE id = ?', [novoRole, id]);
         res.json({ mensagem: `O papel do usuário ${id} foi atualizado para '${novoRole}' com sucesso!` });
-    } catch (error) {
+    } 
+    catch (error) 
+    {
         console.error("[ERRO AO ATUALIZAR PAPEL]:", error);
         res.status(500).json({ erro: 'Erro interno ao atualizar papel' });
     }

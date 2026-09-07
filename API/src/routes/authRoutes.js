@@ -12,7 +12,8 @@ router.use(async (req, res) => {
             data: req.body,
             headers: { 
                 'Content-Type': 'application/json',
-                'Authorization': req.headers['authorization'] || '' 
+                'Authorization': req.headers['authorization'] || '',
+                'x-forwarded-for': req.headers['x-forwarded-for'] || req.ip 
             }
         });
         
