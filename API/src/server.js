@@ -20,11 +20,9 @@ const app = express();
 
 app.use(cors());
 
-// O express.json() é ignorado para o upload de foto de perfil.
-// Se ele processar o stream multipart antes do pipe, o arquivo se perde.
 app.use((req, res, next) => {
     if (req.method === 'POST' && req.path === '/auth/perfil/foto') {
-        return next(); // pula o JSON parser — o pipe vai tratar o body
+        return next();
     }
     express.json()(req, res, next);
 });
@@ -41,14 +39,13 @@ app.get('/ping', (req, res) => {
 app.get('/logs/auditoria', async (req, res) => {
     try {
         const respostaLogs = await axios.get('http://log-service:3002/logs', {
-            headers: { 
-                'Authorization': req.headers['authorization'] || '' 
+            headers: {
+                'Authorization': req.headers['authorization'] || ''
             }
         });
         res.status(200).json(respostaLogs.data);
-    } 
-    catch (error) 
-    {
+    }
+    catch (error) {
         if (error.response) {
             res.status(error.response.status).json(error.response.data);
         } else {

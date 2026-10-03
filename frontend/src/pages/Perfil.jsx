@@ -8,12 +8,9 @@ function Perfil() {
   const [referencias, setReferencias] = useState([]);
   const [loadingPerfil, setLoadingPerfil] = useState(true);
   const [uploadando, setUploadando] = useState(false);
-  const [feedback, setFeedback] = useState(null); // { tipo: 'sucesso'|'erro', msg: '' }
+  const [feedback, setFeedback] = useState(null);
   const inputFotoRef = useRef(null);
 
-  // ──────────────────────────────────────────────
-  // Carregamento inicial
-  // ──────────────────────────────────────────────
   useEffect(() => {
     carregarPerfil();
     carregarReferencias();
@@ -40,9 +37,6 @@ function Perfil() {
     }
   };
 
-  // ──────────────────────────────────────────────
-  // Upload de foto
-  // ──────────────────────────────────────────────
   const handleFotoChange = async (e) => {
     const arquivo = e.target.files[0];
     if (!arquivo) return;
@@ -61,12 +55,7 @@ function Perfil() {
 
     setUploadando(true);
     try {
-      // Usa a instância global `api` (aponta para o Catálogo / API Gateway).
-      // NÃO defina Content-Type manualmente: o axios detecta o FormData e
-      // gera o boundary correto automaticamente.
       const response = await api.post('/auth/perfil/foto', formData);
-
-      // Atualiza a foto instantaneamente sem reload
       const novaUrl = response.data.url;
       setPerfil((prev) => ({ ...prev, foto_perfil: novaUrl }));
       mostrarFeedback('sucesso', 'Foto atualizada com sucesso!');
@@ -79,17 +68,13 @@ function Perfil() {
     }
   };
 
-  // ──────────────────────────────────────────────
   // Helpers
-  // ──────────────────────────────────────────────
   const mostrarFeedback = (tipo, msg) => {
     setFeedback({ tipo, msg });
     setTimeout(() => setFeedback(null), 4000);
   };
 
-  // ──────────────────────────────────────────────
   // Render
-  // ──────────────────────────────────────────────
   if (loadingPerfil) {
     return (
       <div className="perfil-loading">

@@ -5,11 +5,6 @@ import http from 'http';
 const router = express.Router();
 const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://auth-service:3001';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ROTA ESPECIAL: Upload de foto de perfil
-// Usa pipe nativo HTTP para preservar o stream multipart/form-data intocado.
-// O axios destruiria o boundary ao reserializar o body.
-// ─────────────────────────────────────────────────────────────────────────────
 router.post('/perfil/foto', (req, res) => {
     const destUrl = new URL(`${AUTH_SERVICE_URL}/auth/perfil/foto`);
 
@@ -18,12 +13,7 @@ router.post('/perfil/foto', (req, res) => {
         port: destUrl.port || 80,
         path: destUrl.pathname,
         method: 'POST',
-        headers: {
-            // Repassa TODOS os headers originais (incluindo Content-Type com o
-            // boundary correto e o Authorization com JWT)
-            ...req.headers,
-            host: destUrl.host,
-        },
+        headers: { ...req.headers, host: destUrl.host, },
     };
 
     const proxyReq = http.request(options, (proxyRes) => {
@@ -37,13 +27,30 @@ router.post('/perfil/foto', (req, res) => {
         res.status(502).json({ erro: 'Falha ao encaminhar upload para o AuthService.' });
     });
 
-    // Faz o pipe do stream de upload direto para o AuthService — sem buffer
     req.pipe(proxyReq);
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PROXY GERAL: Todas as outras rotas /auth usam axios (JSON)
-// ─────────────────────────────────────────────────────────────────────────────
+router.get('/perfil/foto/:nomeArquivo', async (req, res) => {
+    try {
+        const response = await axios({
+            method: 'get',
+            url: `${AUTH_SERVICE_URL}/auth/perfil/foto/${encodeURIComponent(req.params.nomeArquivo)}`,
+            responseType: 'stream',
+        });
+
+        res.status(response.status);
+        Object.entries(response.headers).forEach(([k, v]) => res.setHeader(k, v));
+
+        response.data.pipe(res);
+    } catch (error) {
+        if (!res.headersSent) {
+            const status = error.response?.status || 502;
+            res.status(status).json({ erro: 'Imagem não encontrada.' });
+        }
+    }
+});
+
+
 router.use(async (req, res) => {
     try {
         const respostaMicrosservico = await axios({

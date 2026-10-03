@@ -33,7 +33,6 @@ services:
       - EMAIL_USER=${EMAIL_USER}
       - EMAIL_PASS=${EMAIL_PASS}
       - FRONTEND_URL=${FRONTEND_URL}
-      # Credenciais do MinIO para o backend enxergar
       - MINIO_ENDPOINT=minio
       - MINIO_PORT=9000
       - MINIO_ACCESS_KEY=admin

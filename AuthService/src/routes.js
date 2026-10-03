@@ -10,9 +10,8 @@ import path from 'path';
 
 const upload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 5 * 1024 * 1024 }, // Limite de 5MB
+    limits: { fileSize: 5 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
-        // Validação de tipo (Apenas imagens permitidas)
         if (file.mimetype.startsWith('image/')) {
             cb(null, true);
         } else {
@@ -299,11 +298,30 @@ router.get('/perfil', verificarUsuario, async (req, res) => {
 
 // Rota Pública: O Node.js busca a foto no MinIO interno e entrega para o navegador
 router.get('/perfil/foto/:nomeArquivo', async (req, res) => {
+    const bucket = 'perfil-fotos';
+    const { nomeArquivo } = req.params;
     try {
-        const stream = await minioClient.getObject('perfil-fotos', req.params.nomeArquivo);
-        // Envia o arquivo binário direto para quem pediu (o navegador)
+        // 1. Busca os metadados para obter o Content-Type real do arquivo
+        const stat = await minioClient.statObject(bucket, nomeArquivo);
+        const contentType = stat.metaData?.['content-type'] || 'image/jpeg';
+
+        // 2. Seta os headers corretos ANTES de iniciar o stream
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Content-Length', stat.size);
+        res.setHeader('Cache-Control', 'public, max-age=31536000'); // cache de 1 ano
+
+        // 3. Faz o stream dos bytes direto para o browser
+        const stream = await minioClient.getObject(bucket, nomeArquivo);
         stream.pipe(res);
+
+        stream.on('error', (err) => {
+            console.error('[MINIO STREAM ERROR]', err.message);
+            if (!res.headersSent) {
+                res.status(500).json({ erro: 'Erro ao ler arquivo do bucket.' });
+            }
+        });
     } catch (error) {
+        console.error('[MINIO GET OBJECT ERROR]', error.message);
         res.status(404).json({ erro: 'Foto não encontrada no bucket.' });
     }
 });
@@ -320,7 +338,7 @@ router.post('/perfil/foto', verificarUsuario, upload.single('foto'), async (req,
 
     try {
         const extensao = path.extname(req.file.originalname);
-        const nomeArquivo = `perfil-\({req.usuarioLogado.id}-\){Date.now()}${extensao}`;
+        const nomeArquivo = `perfil-${req.usuarioLogado.id}-${Date.now()}${extensao}`;
         const bucket = 'perfil-fotos';
 
         await minioClient.putObject(bucket, nomeArquivo, req.file.buffer, req.file.size, {

@@ -22,8 +22,7 @@ function App() {
         <Route path="/cadastro" element={<Cadastro />} />
         <Route path="/esqueci-senha" element={<EsqueciSenha />} />
         <Route path="/resetar-senha" element={<ResetarSenha />} />
-        
-        {/* Usamos o Guarda-Costas aqui */}
+
         <Route element={<RotaPrivada />}>
           <Route path="/home" element={<Home />} />
           <Route path="/referencias" element={<Dashboard />} />
