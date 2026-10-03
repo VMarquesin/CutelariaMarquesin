@@ -19,7 +19,16 @@ dotenv.config();
 const app = express();
 
 app.use(cors());
-app.use(express.json());
+
+// O express.json() é ignorado para o upload de foto de perfil.
+// Se ele processar o stream multipart antes do pipe, o arquivo se perde.
+app.use((req, res, next) => {
+    if (req.method === 'POST' && req.path === '/auth/perfil/foto') {
+        return next(); // pula o JSON parser — o pipe vai tratar o body
+    }
+    express.json()(req, res, next);
+});
+
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 app.use('/auth', authRoutes);
 app.use('/referencias', referenciaRoutes);

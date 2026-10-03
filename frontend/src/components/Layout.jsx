@@ -41,8 +41,12 @@ function Layout() {
               Início
             </NavLink>
             <NavLink to="/referencias" className="nav-item">
-              Referências & Ideias
+              Referências &amp; Ideias
             </NavLink>
+            <NavLink to="/perfil" className="nav-item">
+              Meu Perfil
+            </NavLink>
+            <span className="nav-separator" />
             <span className="nav-item" style={{opacity: 0.5, cursor: 'not-allowed'}} title="Em breve">
               Estoque (Em breve)
             </span>

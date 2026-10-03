@@ -4,6 +4,22 @@ import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
 import nodemailer from 'nodemailer';
 import db from './db.js';
+import multer from 'multer';
+import minioClient from './minioClient.js';
+import path from 'path';
+
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 5 * 1024 * 1024 }, // Limite de 5MB
+    fileFilter: (req, file, cb) => {
+        // Validação de tipo (Apenas imagens permitidas)
+        if (file.mimetype.startsWith('image/')) {
+            cb(null, true);
+        } else {
+            cb(new Error('Formato inválido. Apenas imagens são aceitas.'));
+        }
+    }
+});
 
 // AUDITORIA LOG-SERVICE
 const registrarLog = async (usuario_id, acao, ip, detalhes) => {
@@ -44,14 +60,13 @@ router.post('/cadastro', async (req, res) => {
         const hash = await bcrypt.hash(senha, 10);
 
         await db.query(
-            'INSERT INTO usuarios (username, email, senha_hash, role) VALUES (?, ?, ?, ?)', 
+            'INSERT INTO usuarios (username, email, senha_hash, role) VALUES (?, ?, ?, ?)',
             [username, email, hash, 'usuario']
         );
 
         res.status(201).json({ mensagem: 'Sua conta na Forja & Fogo foi criada com sucesso!' });
-    } 
-    catch (error) 
-    {
+    }
+    catch (error) {
         console.error("[ERRO GRAVE NO CADASTRO]:", error);
         res.status(500).json({ erro: 'Erro interno ao criar conta.' });
     }
@@ -66,7 +81,7 @@ router.post('/login', async (req, res) => {
         }
 
         const [results] = await db.query('SELECT * FROM usuarios WHERE email = ?', [email]);
-        
+
         if (results.length === 0) {
             return res.status(401).json({ erro: 'Usuário não encontrado' });
         }
@@ -89,14 +104,13 @@ router.post('/login', async (req, res) => {
             process.env.JWT_SECRET,
             { expiresIn: '1h' }
         );
-        
+
         const ipUsuario = req.headers['x-forwarded-for'] || req.ip;
         registrarLog(usuario.id, 'LOGIN_SUCESSO', ipUsuario, 'Usuário entrou no sistema');
 
         res.json({ mensagem: 'Login bem-sucedido', token, usuario: { id: usuario.id, email: usuario.email } });
-    } 
-    catch (error) 
-    {
+    }
+    catch (error) {
         console.error("[ERRO GRAVE NO LOGIN]:", error);
         res.status(500).json({ erro: 'Erro interno no servidor' });
     }
@@ -104,14 +118,14 @@ router.post('/login', async (req, res) => {
 
 // ESQUECI MINHA SENHA
 router.post('/esqueci-senha', async (req, res) => {
-    const { email } = req.body; 
+    const { email } = req.body;
     try {
         const [usuarios] = await db.query('SELECT * FROM usuarios WHERE email = ?', [email]);
         if (usuarios.length === 0) return res.status(404).json({ erro: 'E-mail não cadastrado' });
 
         const usuario = usuarios[0];
         const token = uuidv4();
-        
+
         const criadoEm = new Date();
         const expiraEm = new Date(criadoEm.getTime() + 30 * 60000);
 
@@ -124,7 +138,7 @@ router.post('/esqueci-senha', async (req, res) => {
 
         await transporter.sendMail({
             from: '"Cutelaria Marquesin" <noreply@cutelaria.com>',
-            to: usuario.email, 
+            to: usuario.email,
             subject: 'Recuperação de Senha',
             html: `
                 <h3>Olá, ${usuario.username}!</h3>
@@ -135,9 +149,8 @@ router.post('/esqueci-senha', async (req, res) => {
         });
 
         res.json({ mensagem: 'E-mail de recuperação enviado com sucesso!' });
-    } 
-    catch (error) 
-    {
+    }
+    catch (error) {
         res.status(500).json({ erro: 'Erro ao gerar recuperação' });
     }
 });
@@ -150,19 +163,18 @@ router.post('/resetar-senha', async (req, res) => {
         if (tokens.length === 0) return res.status(400).json({ erro: 'Token inválido' });
 
         const resetData = tokens[0];
-        
+
         if (resetData.usado) return res.status(400).json({ erro: 'Este link já foi utilizado.' });
         if (new Date() > new Date(resetData.expira_em)) return res.status(400).json({ erro: 'Este link expirou.' });
 
         const hash = await bcrypt.hash(novaSenha, 10);
-        
+
         await db.query('UPDATE usuarios SET senha_hash = ? WHERE id = ?', [hash, resetData.usuario_id]);
         await db.query('UPDATE reset_tokens SET usado = true WHERE token = ?', [token]);
 
         res.json({ mensagem: 'Senha alterada com sucesso!' });
-    } 
-    catch (error) 
-    {
+    }
+    catch (error) {
         res.status(500).json({ erro: 'Erro ao alterar senha' });
     }
 });
@@ -170,28 +182,27 @@ router.post('/resetar-senha', async (req, res) => {
 // MIDDLEWARE DE AUTORIZAÇÃO (RBAC)
 const verificarAdmin = (req, res, next) => {
     const authHeader = req.headers.authorization;
-    const ipUsuario  = req.headers['x-forwarded-for'] || req.ip;
-    
+    const ipUsuario = req.headers['x-forwarded-for'] || req.ip;
+
     if (!authHeader) {
         registrarLog('ANONIMO', 'TENTATIVA_ACESSO_SEM_TOKEN', ipUsuario, `Tentou acessar: ${req.originalUrl}`);
         return res.status(401).json({ erro: 'Acesso negado. Token não fornecido.' });
     }
 
-    const token = authHeader.split(' ')[1]; 
+    const token = authHeader.split(' ')[1];
     try {
         const decodificado = jwt.verify(token, process.env.JWT_SECRET);
-        
+
         if (decodificado.role !== 'admin') {
-            registrarLog(decodificado.id, 'TENTATIVA_ACESSO_ADMIN_NEGADO', 
-                         ipUsuario, `Usuário comum tentou acessar rota restrita: ${req.originalUrl}`);
+            registrarLog(decodificado.id, 'TENTATIVA_ACESSO_ADMIN_NEGADO',
+                ipUsuario, `Usuário comum tentou acessar rota restrita: ${req.originalUrl}`);
             return res.status(403).json({ erro: 'Acesso proibido (403).' });
         }
 
         req.usuarioLogado = decodificado;
-        next(); 
-    } 
-    catch (error) 
-    {
+        next();
+    }
+    catch (error) {
         registrarLog('ANONIMO', 'TENTATIVA_ACESSO_TOKEN_INVALIDO', ipUsuario, 'Token expirado ou forjado');
         return res.status(401).json({ erro: 'Token inválido ou expirado.' });
     }
@@ -204,9 +215,8 @@ router.get('/admin/usuarios', verificarAdmin, async (req, res) => {
             'SELECT id, username, email, role, criado_em FROM usuarios'
         );
         res.json(usuarios);
-    } 
-    catch (error) 
-    {
+    }
+    catch (error) {
         console.error("[ERRO AO LISTAR USUARIOS]:", error);
         res.status(500).json({ erro: 'Erro interno ao buscar usuários' });
     }
@@ -224,19 +234,18 @@ router.put('/admin/usuarios/:id/role', verificarAdmin, async (req, res) => {
     try {
         await db.query('UPDATE usuarios SET role = ? WHERE id = ?', [novoRole, id]);
         res.json({ mensagem: `O papel do usuário ${id} foi atualizado para '${novoRole}' com sucesso!` });
-    } 
-    catch (error) 
-    {
+    }
+    catch (error) {
         console.error("[ERRO AO ATUALIZAR PAPEL]:", error);
         res.status(500).json({ erro: 'Erro interno ao atualizar papel' });
     }
 });
 
 // ROTA DE LOGOUT (Auditoria)
-router.post('/logout', (req, res) => { 
+router.post('/logout', (req, res) => {
     const authHeader = req.headers.authorization;
     const ip = req.headers['x-forwarded-for'] || req.ip;
-    
+
     if (!authHeader) {
         return res.status(200).json({ mensagem: 'Logout sem token (já deslogado)' });
     }
@@ -244,12 +253,93 @@ router.post('/logout', (req, res) => {
     try {
         const token = authHeader.split(' ')[1];
         const decodificado = jwt.verify(token, process.env.JWT_SECRET);
-        
+
         registrarLog(decodificado.id, 'LOGOUT', ip, 'Usuário saiu do sistema');
     } catch (error) {
         // Se o token já expirou
     }
-    
+
     res.json({ mensagem: 'Logout efetuado com sucesso' });
 });
+
+// ==========================================
+// ROTAS DE PERFIL DE USUÁRIO
+// ==========================================
+
+// Middleware genérico para verificar qualquer usuário logado (não apenas admin)
+const verificarUsuario = (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).json({ erro: 'Acesso negado. Token não fornecido.' });
+
+    const token = authHeader.split(' ')[1];
+    try {
+        const decodificado = jwt.verify(token, process.env.JWT_SECRET);
+        req.usuarioLogado = decodificado; // ID e role estão aqui dentro!
+        next();
+    } catch (error) {
+        return res.status(401).json({ erro: 'Token inválido ou expirado.' });
+    }
+};
+
+// GET: Buscar perfil do usuário logado
+router.get('/perfil', verificarUsuario, async (req, res) => {
+    try {
+        const [usuarios] = await db.query(
+            'SELECT id, username, email, bio, foto_perfil, criado_em FROM usuarios WHERE id = ?',
+            [req.usuarioLogado.id]
+        );
+
+        if (usuarios.length === 0) return res.status(404).json({ erro: 'Usuário não encontrado.' });
+
+        res.json(usuarios[0]);
+    } catch (error) {
+        res.status(500).json({ erro: 'Erro ao buscar perfil.' });
+    }
+});
+
+// Rota Pública: O Node.js busca a foto no MinIO interno e entrega para o navegador
+router.get('/perfil/foto/:nomeArquivo', async (req, res) => {
+    try {
+        const stream = await minioClient.getObject('perfil-fotos', req.params.nomeArquivo);
+        // Envia o arquivo binário direto para quem pediu (o navegador)
+        stream.pipe(res);
+    } catch (error) {
+        res.status(404).json({ erro: 'Foto não encontrada no bucket.' });
+    }
+});
+
+// POST: Upload de Foto de Perfil
+router.post('/perfil/foto', verificarUsuario, upload.single('foto'), async (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ erro: 'Nenhuma foto enviada.' });
+    }
+
+    if (req.body.id && String(req.body.id) !== String(req.usuarioLogado.id)) {
+        return res.status(403).json({ erro: 'Acesso negado: Você só pode alterar o seu próprio perfil.' });
+    }
+
+    try {
+        const extensao = path.extname(req.file.originalname);
+        const nomeArquivo = `perfil-\({req.usuarioLogado.id}-\){Date.now()}${extensao}`;
+        const bucket = 'perfil-fotos';
+
+        await minioClient.putObject(bucket, nomeArquivo, req.file.buffer, req.file.size, {
+            'Content-Type': req.file.mimetype
+        });
+
+        const urlMinio = `https://vinicius-marquesin-isw055.lapps.studio/auth/perfil/foto/${nomeArquivo}`;
+
+        await db.query('UPDATE usuarios SET foto_perfil = ? WHERE id = ?', [urlMinio, req.usuarioLogado.id]);
+
+        // Registrar na auditoria
+        const ipUsuario = req.headers['x-forwarded-for'] || req.ip;
+        registrarLog(req.usuarioLogado.id, 'UPLOAD_FOTO_PERFIL', ipUsuario, `Nova foto salva no MinIO: ${nomeArquivo}`);
+
+        res.json({ mensagem: 'Foto atualizada com sucesso!', url: urlMinio });
+    } catch (error) {
+        console.error("Erro no upload MinIO:", error);
+        res.status(500).json({ erro: 'Falha ao processar e salvar a imagem.' });
+    }
+});
+
 export default router;

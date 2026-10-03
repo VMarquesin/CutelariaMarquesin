@@ -85,3 +85,11 @@
   overflow-y: auto;
   background-color: var(--bg-color);
 }
+
+/* SEPARADOR NA NAV */
+.nav-separator {
+  display: block;
+  height: 1px;
+  background-color: var(--border-color);
+  margin: 0.5rem 1.5rem;
+}

@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard';
 import Home from './pages/Home';
 import Layout from './components/Layout';
 import Admin from './pages/Admin';
+import Perfil from './pages/Perfil';
 
 const RotaPrivada = () => {
   const logado = localStorage.getItem('token') !== null;
@@ -25,8 +26,9 @@ function App() {
         {/* Usamos o Guarda-Costas aqui */}
         <Route element={<RotaPrivada />}>
           <Route path="/home" element={<Home />} />
-          <Route path="/referencias" element={<Dashboard />} /> 
+          <Route path="/referencias" element={<Dashboard />} />
           <Route path="/admin" element={<Admin />} />
+          <Route path="/perfil" element={<Perfil />} />
         </Route>
       </Routes>
     </BrowserRouter>

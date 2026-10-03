@@ -69,3 +69,42 @@ O AuthService, o log-service e os bancos de dados não possuem portas publicadas
 ### Recuperação de Senha Real:
 
 Fluxo completo com geração de tokens seguros (UUID), expiração de 30 minutos e envio de e-mails reais via SMTP.
+
+# Notas de Lançamento: Perfil de Usuário e Object Storage
+
+**Data:** 02 de Outubro de 2026
+**Módulo:** Autenticação & Catálogo (Transformação Social)
+
+## Visão Geral
+Nesta atualização, o sistema evolui de um simples catálogo para uma experiência mais social. Cada usuário agora possui uma página de Perfil personalizada com foto, biografia e o seu próprio mural de lâminas favoritadas.
+
+A principal mudança arquitetural desta entrega é a introdução de um **Object Storage (MinIO)** dedicado exclusivamente para o armazenamento de arquivos binários (imagens), desafogando o banco de dados relacional.
+
+---
+
+## O que há de novo no Frontend?
+
+* **Nova Rota Privada (`/perfil`):** Acesso direto pelo menu lateral ("Meu Perfil") da aplicação principal.
+* **Interface do Perfil (`Perfil.jsx`):** 
+    * Exibe a foto do usuário, `username` e `bio`.
+    * Na ausência de foto, um *placeholder* dinâmico com a inicial do usuário é gerado na interface.
+* **Mecanismo de Upload Dinâmico:** 
+    * Suporte a envio de imagens via objeto `FormData`.
+    * Validação em tempo real no cliente: aceita apenas formato imagem com limite de 5MB.
+    * Atualização de estado (UI) instantânea: a foto muda na tela imediatamente após o sucesso do upload, sem necessidade de recarregar a página.
+* **Feedback Visual (Toast):** Alertas flutuantes no canto superior direito informando o sucesso ou erro no upload, desaparecendo automaticamente após 4 segundos.
+* **Galeria de Favoritos Integrada:** O perfil agora reaproveita a rota `GET /referencias` para construir um grid elegante com *overlay* de interações, mostrando tudo o que o usuário favoritou na plataforma.
+
+---
+
+## Backend & Infra
+
+O fluxo de upload foi construído separando as responsabilidades de armazenamento:
+
+1. **Recepção em Memória (`multer`):** O backend (Node.js) recebe o arquivo via `POST /auth/perfil/foto`, validando o *mimetype* (apenas imagens) e limitando o *buffer* a 5MB na memória RAM.
+2. **Envio para Object Storage (`minio`):** O SDK do MinIO faz o *streaming* da imagem da memória direto para um *bucket* dedicado chamado `perfil-fotos`.
+3. **Gravação Leve no MariaDB:** O banco de dados relacional (MariaDB) nunca toca no arquivo binário. Ele apenas recebe um `UPDATE` salvando a referência textual da imagem (a URL pública) na nova coluna `foto_perfil`.
+4. **Segurança de Identidade (Enforcement):** Para cumprir os requisitos de segurança, o sistema bloqueia tentativas de edição de terceiros. A rota confia **apenas** no ID extraído do Token JWT do cabeçalho da requisição, ignorando qualquer ID que venha no corpo do envio.
+
+## Decisões Arquiteturais
+* **Bucket de Leitura Pública:** Optou-se por configurar o bucket do MinIO com permissão de *download anônimo*. Como fotos de perfil são dados públicos por natureza em redes sociais, isso permite o carregamento direto pelo navegador do usuário e cache otimizado, sem a necessidade de o backend gerar URLs pré-assinadas (*Pre-Signed URLs*) a cada acesso.
