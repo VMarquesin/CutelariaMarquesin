@@ -10,10 +10,21 @@ function Dashboard() {
   const [referenciasSalvas, setReferenciasSalvas] = useState([]);
   const [loading, setLoading] = useState(false);
   const [referenciaEmFoco, setReferenciaEmFoco] = useState(null);
+  const [perfil, setPerfil] = useState(null);
 
   useEffect(() => {
     carregarReferenciasSalvas();
+    carregarPerfil();
   }, []);
+
+  const carregarPerfil = async () => {
+    try {
+      const response = await api.get('/auth/perfil');
+      setPerfil(response.data);
+    } catch (error) {
+      console.error("Erro ao carregar perfil:", error);
+    }
+  };
 
   const carregarReferenciasSalvas = async () => {
     try {
@@ -44,6 +55,11 @@ function Dashboard() {
   };
 
   const handleSalvar = async (imagem) => {
+    if (perfil && !perfil.is_premium && referenciasSalvas.length >= 3) {
+      alert('Limite de 3 referências atingido. Acesse seu Perfil e seja Premium para salvar ilimitado!');
+      return;
+    }
+
     try {
       await api.post('/referencias', {
         unsplashId: imagem.unsplash_id,

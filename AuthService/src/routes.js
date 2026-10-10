@@ -284,7 +284,7 @@ const verificarUsuario = (req, res, next) => {
 router.get('/perfil', verificarUsuario, async (req, res) => {
     try {
         const [usuarios] = await db.query(
-            'SELECT id, username, email, bio, foto_perfil, criado_em FROM usuarios WHERE id = ?',
+            'SELECT id, username, email, bio, foto_perfil, criado_em, is_premium FROM usuarios WHERE id = ?',
             [req.usuarioLogado.id]
         );
 

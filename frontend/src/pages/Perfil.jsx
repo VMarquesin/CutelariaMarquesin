@@ -136,7 +136,26 @@ function Perfil() {
         </div>
 
         <div className="perfil-info">
-          <h1 className="perfil-username">{perfil?.username ?? '—'}</h1>
+          <h1 className="perfil-username">
+            {perfil?.username ?? '—'}
+            {perfil?.is_premium ? (
+              <span style={{ fontSize: '0.6em', marginLeft: '10px', color: '#ffc107' }}>👑 Mestre Premium</span>
+            ) : (
+              <button 
+                onClick={async () => {
+                  try {
+                    const res = await api.post('/stripe/checkout');
+                    window.location.href = res.data.url;
+                  } catch (err) {
+                    mostrarFeedback('erro', 'Erro ao iniciar checkout Stripe.');
+                  }
+                }}
+                style={{ marginLeft: '15px', backgroundColor: '#28a745', color: '#fff', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '14px' }}
+              >
+                Fazer Upgrade para Premium
+              </button>
+            )}
+          </h1>
           <p className="perfil-bio">
             {perfil?.bio || <span className="perfil-bio--vazia">Nenhuma bio cadastrada.</span>}
           </p>
