@@ -1,12 +1,28 @@
 # Catálogo de Cutelaria - Arquitetura de Microsserviços
 
-@siriani,
+Professor [github.com/siriani](https://github.com/siriani),
 
-Esta é a entrega referente à evolução da arquitetura, contemplando Auditoria, Observabilidade e Enforcement de Segurança (RBAC).
+Esta é a entrega referente à evolução da arquitetura, contemplando Computação em Nuvem (SaaS, PaaS, IaaS), Microsserviços desacoplados, Auditoria, Observabilidade e Segurança.
+
+> **Documentação Arquitetural Completa:** Para a especificação detalhada de usuários, diagramas de microsserviços (Mermaid), regras de negócio no formato lógico estrito e modelo de dados ER, consulte o arquivo [DOCUMENTACAO.md](DOCUMENTACAO.md).
+
+---
+
+## 1. Classificação do Ecossistema em Nuvem (SaaS, PaaS, IaaS)
+
+A solução integra serviços distribuídos distribuídos nas três principais camadas de computação em nuvem:
+
+| Camada | Componentes / Tecnologias | Justificativa Arquitetural |
+| :--- | :--- | :--- |
+| **SaaS** *(Software as a Service)* | **Stripe** (Checkout & Webhooks) e **Unsplash API** | O Stripe foi escolhido como SaaS porque transfere toda a responsabilidade de conformidade PCI-DSS, segurança financeira e processamento de pagamentos para uma plataforma pronta consumível via API. A API do Unsplash foi escolhida como SaaS para fornecer um banco dinâmico de imagens em alta definição sem custos de curadoria e hospedagem de mídia bruta. |
+| **PaaS** *(Platform as a Service)* | **Docker Containers**, **Docker Compose** e **Portainer** | Os containers e orquestradores foram escolhidos como PaaS porque abstraem o gerenciamento do sistema operacional subjacente, fornecendo um ambiente padronizado de execução, isolamento de processos, escalabilidade e gerenciamento facilitado do ciclo de vida dos microsserviços. |
+| **IaaS** *(Infrastructure as a Service)* | **Máquina Virtual (VM Cloud)** e **Volumes de Disco Persistente** | A VM foi escolhida como IaaS porque fornece a infraestrutura de computação bruta sob demanda (vCPU, memória RAM, rede virtualizada e blocos de armazenamento persistente para o MariaDB, Redis e MinIO), garantindo total flexibilidade e controle sobre o provisionamento dos recursos do host. |
+
+---
 
 ## O que mudou na Atualização Mais Recente:
 
-O sistema, que já possuía o login desacoplado, evoluiu para incluir um robusto rastreamento de ações e auditoria. Foi criado um terceiro microsserviço, o log-service, que atua de forma assíncrona recebendo eventos críticos de negócio e segurança. Além disso, as rotas administrativas agora possuem bloqueio real (Enforcement) no servidor.
+O sistema, que já possuía o login desacoplado, evoluiu para incluir um robusto rastreamento de ações e auditoria. Foi criado o microsserviço `log-service`, que atua de forma assíncrona recebendo eventos críticos de negócio e segurança, além do novo `payment-service` isolando o domínio financeiro com Stripe. Além disso, as rotas administrativas agora possuem bloqueio real (Enforcement) no servidor.
 
 ## Destaques da Nova Implementação (Logs e Auditoria):
 

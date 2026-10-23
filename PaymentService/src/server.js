@@ -5,10 +5,9 @@ import paymentRoutes from './routes.js';
 const app = express();
 app.use(cors());
 
-// Configuração condicional do express.json()
 app.use((req, res, next) => {
     if (req.originalUrl === '/stripe/webhook') {
-        return next(); // Pula o parser JSON no webhook
+        return next();
     }
     express.json()(req, res, next);
 });
