@@ -5,6 +5,8 @@ Professor [github.com/siriani](https://github.com/siriani),
 Esta é a entrega referente à evolução da arquitetura, contemplando Computação em Nuvem (SaaS, PaaS, IaaS), Microsserviços desacoplados, Auditoria, Observabilidade e Segurança.
 
 > **Documentação Arquitetural Completa:** Para a especificação detalhada de usuários, diagramas de microsserviços (Mermaid), regras de negócio no formato lógico estrito e modelo de dados ER, consulte o arquivo [DOCUMENTACAO.md](DOCUMENTACAO.md).
+>
+> Este projeto continua em: https://github.com/VMarquesin/ForjaMarquesin
 
 ---
 
